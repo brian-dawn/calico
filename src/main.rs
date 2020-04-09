@@ -86,7 +86,7 @@ fn main() -> Result<()> {
 
                 let lch_color: Lch = color.into();
 
-                let new_color = Srgb::from(lch_color.shift_hue(12.1));
+                let new_color = Srgb::from(lch_color.shift_hue(1.1));
                 ColorPair {
                     name: color_pair.name.clone(),
                     value: new_color,
@@ -102,8 +102,13 @@ fn main() -> Result<()> {
         //println!("Time elapsed in expensive_function() is: {:?}", duration);
 
         // Provide a consistent framerate. Increase the high end to reduce load on kitty.
-        let sleep_time = std::time::Duration::from_millis(500) - start.elapsed();
-        std::thread::sleep(sleep_time);
+        let target_sleep_time = std::time::Duration::from_millis(500);
+        let sleep_time = if target_sleep_time > duration {
+            target_sleep_time - start.elapsed()
+        } else {
+            std::time::Duration::from_millis(0)
+        };
+        std::thread::sleep(target_sleep_time);
     }
 }
 
