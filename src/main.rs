@@ -1,10 +1,11 @@
-//alias kitty-light='kitty @ set_colors -a $HOME/.config/kitty/kitty-themes/themes/PencilLight.conf'
 use anyhow::Result;
+use std::time::{Duration, Instant};
 use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
 
 use color_processing::Color;
+use palette::encoding::pixel::Pixel;
 use palette::{FromColor, Lch, Saturate, Shade, Srgb};
 use palette::{Hue, LinSrgb};
 
@@ -13,6 +14,15 @@ struct ColorPair {
     value: Srgb,
 }
 
+impl ColorPair {
+
+    fn to_hex(&self) -> String {
+
+                let conv: Srgb<u8> = self.value.into_format();
+                let new_color = Color::new_rgb(conv.red, conv.green, conv.blue);
+                new_color.to_hex_string()
+    }
+}
 struct Theme {
     colors: Vec<ColorPair>,
 }
@@ -25,13 +35,11 @@ impl Theme {
                 let mut parts = line.split_whitespace();
                 let name = parts.next()?.trim().to_string();
                 let color = Color::new_string(parts.next()?.trim())?;
+                let buffer = [color.red, color.green, color.blue];
+                let raw = Srgb::from_raw(&buffer);
                 Some(ColorPair {
                     name,
-                    value: Srgb::new(
-                        color.red as f32 / 255.0,
-                        color.green as f32 / 255.0,
-                        color.blue as f32 / 255.0,
-                    ),
+                    value: raw.into_format(),
                 })
             })
             .collect();
@@ -44,46 +52,31 @@ impl Theme {
             .iter()
             .map(|color| {
                 //
-                let new_color = Color::new_rgb(
-                    (color.value.red * 255.0) as u8,
-                    (color.value.green * 255.0) as u8,
-                    (color.value.blue * 255.0) as u8,
-                );
+                let conv: Srgb<u8> = color.value.into_format();
+                let new_color = Color::new_rgb(conv.red, conv.green, conv.blue);
                 format!("{} {}", color.name, new_color.to_hex_string())
             })
             .collect::<Vec<String>>()
             .join("\n")
     }
+
 }
 
 fn main() -> Result<()> {
+  
+    let current_colors = read_colors()?;
+    //println!("{}", current_colors);
     let mut theme = Theme::parse(
-        "
-background #f0f0f0
-foreground #414141
-cursor #20bafb
-selection_background #b6d6fc
-color0 #202020
-color8 #414141
-color1 #c30670
-color9 #fb0079
-color2 #10a778
-color10 #5ed6ae
-color3 #a79c14
-color11 #f3e42f
-color4 #008ec4
-color12 #20bafb
-color5 #523b78
-color13 #6854de
-color6 #20a4b9
-color14 #4fb8cc
-color7 #d9d9d9
-color15 #f0f0f0
-selection_foreground #f0f0f0
-",
+        &current_colors
     );
 
     loop {
+        // let fg = theme.colors[0].value.clone();
+        // let lch_color: Lch = fg.into();
+
+        // let new_color = Srgb::from(lch_color.shift_hue(1.1));
+        // theme.colors[0].value = new_color;
+
         theme.colors = theme
             .colors
             .iter()
@@ -93,30 +86,53 @@ selection_foreground #f0f0f0
 
                 let lch_color: Lch = color.into();
 
-                let new_color = Srgb::from(lch_color.shift_hue(2.1));
+                let new_color = Srgb::from(lch_color.shift_hue(12.1));
                 ColorPair {
                     name: color_pair.name.clone(),
                     value: new_color,
                 }
             })
             .collect();
-        let mut file = File::create("/Users/brian/Desktop/kittytheme.conf")?;
-        file.write_all(theme.dump().as_bytes())?;
-        resync()?;
+        
+        let start = Instant::now();
 
-        let ten_millis = std::time::Duration::from_millis(15);
-        std::thread::sleep(ten_millis);
+        set_color(&theme.colors)?;
+        let duration = start.elapsed();
+
+        //println!("Time elapsed in expensive_function() is: {:?}", duration);
+
+        // Provide a consistent framerate. Increase the high end to reduce load on kitty.
+        let sleep_time = std::time::Duration::from_millis(500) - start.elapsed();
+        std::thread::sleep(sleep_time);
     }
-    println!("Hello, world!");
+}
+
+fn set_color(color_pairs: &[ColorPair]) -> Result<()> {
+    
+    let mut command = Command::new("kitty");
+
+
+        command.arg("@");
+        command.arg("set_colors");
+        command.arg("-a");
+
+    for color_pair in color_pairs {
+        command.arg(format!("{}={}", color_pair.name, color_pair.to_hex()));
+    }
+    
+    command.output()?;
+
     Ok(())
 }
 
-fn resync() -> Result<()> {
-    Command::new("kitty")
+
+fn read_colors() -> Result<String> {
+
+    let out = Command::new("kitty")
         .arg("@")
-        .arg("set_colors")
-        .arg("-a")
-        .arg("/Users/brian/Desktop/kittytheme.conf")
+        .arg("get_colors")
         .output()?;
-    Ok(())
+
+    Ok(String::from_utf8(out.stdout)?)
+
 }
