@@ -1,6 +1,8 @@
 # calico
 
-A tool that slides your [kitty](https://github.com/kovidgoyal/kitty) theme from day to night themes slowly over time.
+A tool that slides your [kitty](https://github.com/kovidgoyal/kitty) theme.
+
+Hosted on [SourceHut](https://git.sr.ht/~brian-dawn/calico) but also hosted on [Github](https://github.com/brian-dawn/calico) for convenience. If you're curious why SourceHut is neat check out [this](https://sourcehut.org/blog/2019-10-23-srht-puts-users-first/).
 
 ## Requirements
 
